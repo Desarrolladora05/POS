@@ -609,10 +609,21 @@ const TicketPreviewModal = ({ template, sampleData, onClose }) => {
 
           <div className="bg-gray-50 rounded-lg p-4 mb-6 font-mono text-sm border-2 border-dashed border-gray-300">
             <div className="text-center mb-4">
-              <h3 className="font-bold text-lg">{template.header.businessName}</h3>
-              <p className="text-sm">{template.header.address}</p>
-              <p className="text-sm">{template.header.phone}</p>
-              <p className="text-sm">{template.header.rfc}</p>
+              {template.header.logo && (
+                <img src={template.header.logo} alt="Logo" className="h-10 object-contain mx-auto mb-2" />
+              )}
+              {template.header.businessName && (
+                <h3 className="font-bold text-lg">{template.header.businessName}</h3>
+              )}
+              {template.header.address && (
+                <p className="text-sm">{template.header.address}</p>
+              )}
+              {template.header.phone && (
+                <p className="text-sm">{template.header.phone}</p>
+              )}
+              {template.header.rfc && (
+                <p className="text-sm">{template.header.rfc}</p>
+              )}
             </div>
 
             <div className="border-t border-gray-400 pt-2 mb-4">
@@ -634,6 +645,22 @@ const TicketPreviewModal = ({ template, sampleData, onClose }) => {
                   <span>{sampleData.cashier}</span>
                 </div>
               )}
+              {template.content.showCustomer && (
+                <div className="flex justify-between">
+                  <span>Cliente:</span>
+                  <span>{sampleData.customer}</span>
+                </div>
+              )}
+              {template.content.showTable && sampleData.table && (
+                <div className="flex justify-between">
+                  <span>Mesa:</span>
+                  <span>{sampleData.table}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Tipo:</span>
+                <span>{sampleData.type}</span>
+              </div>
             </div>
 
             <div className="border-t border-gray-400 pt-2 mb-4">
@@ -644,9 +671,11 @@ const TicketPreviewModal = ({ template, sampleData, onClose }) => {
                     <span>{item.name}</span>
                     <span>{item.total}</span>
                   </div>
-                  <div className="text-xs text-gray-600">
-                    {item.quantity} x {item.price}
-                  </div>
+                  {template.content.showItemDetails && (
+                    <div className="text-xs text-gray-600">
+                      {item.quantity} x {item.price}
+                    </div>
+                  )}
                   {template.content.showModifiers && item.modifiers.length > 0 && (
                     <div className="text-xs text-gray-600">
                       + {item.modifiers.join(', ')}
@@ -688,9 +717,15 @@ const TicketPreviewModal = ({ template, sampleData, onClose }) => {
             </div>
 
             <div className="text-center mt-4 text-xs">
-              <p>{template.footer.thankYouMessage}</p>
-              <p>{template.footer.returnPolicy}</p>
-              <p>{template.footer.additionalInfo}</p>
+              {template.footer.thankYouMessage && (
+                <p>{template.footer.thankYouMessage}</p>
+              )}
+              {template.footer.returnPolicy && (
+                <p>{template.footer.returnPolicy}</p>
+              )}
+              {template.footer.additionalInfo && (
+                <p>{template.footer.additionalInfo}</p>
+              )}
             </div>
 
             {template.formatting.showQR && (
