@@ -2,19 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { products as initialProducts } from '../mock/products';
 import { tables as initialTables } from '../mock/tables';
 import { orders as initialOrders } from '../mock/orders';
+import { customers as initialCustomers } from '../mock/customers'; // Importar clientes
 import { productsStorage, tablesStorage, ordersStorage } from '../utils/storage';
 import { formatPrice, formatOrderType } from '../utils/formatters';
 import { calculateTotal, calculateSplitBillTotal, generateId, searchItems, getDollarRate, convertCurrency, applyDiscount, generateTicketNumber, formatTicketDate } from '../utils/helpers';
+import PaymentModal from './PaymentManagement'; // Importar PaymentModal
+import TicketModal from './PaymentManagement'; // Importar TicketModal (si está en el mismo archivo)
+import CustomerSelectionModal from './CustomerManagement'; // Importar CustomerSelectionModal desde CustomerManagement
 
 const OrderManagement = () => {
   const [products, setProducts] = useState([]);
   const [tables, setTables] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [customers, setCustomers] = useState(initialCustomers); // Estado para clientes
   const [currentOrder, setCurrentOrder] = useState({
     items: [],
     tableId: null,
     type: 'dine-in',
     customer: '',
+    customerId: null, // Nuevo campo para ID de cliente
     waiter: '',
     specialInstructions: '',
     splitBills: [],
@@ -30,6 +36,7 @@ const OrderManagement = () => {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [generatedTicket, setGeneratedTicket] = useState(null);
   const [activeTab, setActiveTab] = useState('products');
+  const [showCustomerSelectionModal, setShowCustomerSelectionModal] = useState(false); // Nuevo modal
 
   useEffect(() => {
     const savedProducts = productsStorage.get() || initialProducts;
@@ -153,6 +160,7 @@ const OrderManagement = () => {
       tableId: null,
       type: 'dine-in',
       customer: '',
+      customerId: null,
       waiter: '',
       specialInstructions: '',
       splitBills: [],
@@ -164,6 +172,20 @@ const OrderManagement = () => {
   };
 
   const totals = calculateTotal(currentOrder.items);
+
+  const handleSelectCustomerForOrder = (customer) => {
+    setCurrentOrder(prev => ({
+      ...prev,
+      customer: customer.name,
+      customerId: customer.id,
+      phone: customer.phone, // Asignar teléfono y dirección para el ticket
+      address: customer.address,
+      neighborhood: customer.neighborhood,
+      city: customer.city,
+      zipCode: customer.zipCode
+    }));
+    setShowCustomerSelectionModal(false);
+  };
 
   return (
     <div className="p-6">
@@ -255,7 +277,7 @@ const OrderManagement = () => {
                         </div>
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900">{product.name}</h3>
-                          <p className="text-sm text-gray-600">SKU: {product.sku}</p>
+                          <p className="text-sm text-gray-600">{product.description}</p>
                           <div className="flex justify-between items-center mt-1">
                             <span className="font-semibold text-gray-900">
                               {formatPrice(product.pricePesos)}
@@ -285,6 +307,7 @@ const OrderManagement = () => {
             onShowPayment={() => setShowPaymentModal(true)}
             onRemoveItem={removeFromOrder}
             onUpdateQuantity={updateQuantity}
+            onShowCustomerSelection={() => setShowCustomerSelectionModal(true)} // Pasar la función para abrir el modal
           />
         </div>
       </div>
@@ -328,6 +351,14 @@ const OrderManagement = () => {
             setShowTicketModal(false);
             setGeneratedTicket(null);
           }}
+        />
+      )}
+
+      {showCustomerSelectionModal && (
+        <CustomerSelectionModal
+          customers={customers}
+          onSelectCustomer={handleSelectCustomerForOrder}
+          onClose={() => setShowCustomerSelectionModal(false)}
         />
       )}
     </div>
@@ -380,7 +411,8 @@ const OrderSummary = ({
   onShowSplitBill, 
   onShowPayment,
   onRemoveItem,
-  onUpdateQuantity 
+  onUpdateQuantity,
+  onShowCustomerSelection 
 }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-6">
     <h2 className="text-lg font-semibold text-gray-900 mb-4">Orden Actual</h2>
@@ -422,18 +454,49 @@ const OrderSummary = ({
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Cliente
-          </label>
-          <input
-            type="text"
-            value={currentOrder.customer}
-            onChange={(e) => setCurrentOrder({...currentOrder, customer: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Nombre del cliente"
-          />
-        </div>
+        {currentOrder.type === 'delivery' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Cliente (Delivery)
+            </label>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={currentOrder.customer}
+                onChange={(e) => setCurrentOrder({...currentOrder, customer: e.target.value})}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Nombre del cliente"
+              />
+              <button
+                type="button"
+                onClick={onShowCustomerSelection} 
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-5 4v-4a3 3 0 00-3-3H6a3 3 0 00-3 3v4a3 3 0 003 3h12a3 3 0 003-3v-4a3 3 0 00-3-3H9a3 3 0 00-3 3v4" />
+                </svg>
+              </button>
+            </div>
+            {currentOrder.customerId && (
+              <p className="text-xs text-gray-500 mt-1">Cliente ID: {currentOrder.customerId}</p>
+            )}
+          </div>
+        )}
+
+        {currentOrder.type !== 'delivery' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Cliente
+            </label>
+            <input
+              type="text"
+              value={currentOrder.customer}
+              onChange={(e) => setCurrentOrder({...currentOrder, customer: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Nombre del cliente"
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -492,7 +555,7 @@ const OrderSummary = ({
               >
                 -
               </button>
-              <span className="w-8 text-center">{item.quantity}</span>
+              <span className="w-12 text-center">{item.quantity}</span>
               <button
                 onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
                 className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300 transition"
@@ -663,7 +726,7 @@ const ProductModal = ({ product, onAddToOrder, onClose }) => {
               >
                 -
               </button>
-              <span className="w-12 text-center font-medium">{quantity}</span>
+              <span className="w-12 text-center">{quantity}</span>
               <button
                 onClick={() => setQuantity(quantity + 1)}
                 className="w-10 h-10 flex items-center justify-center bg-gray-200 rounded-full hover:bg-gray-300 transition"
@@ -822,493 +885,7 @@ const SplitBillModal = ({ currentOrder, onCreateSplitBill, onAssignItem, onClose
   );
 };
 
-const PaymentModal = ({ currentOrder, onClose, onPaymentComplete }) => {
-  const [paymentData, setPaymentData] = useState({
-    method: 'cash',
-    currency: 'MXN',
-    amountReceived: '',
-    tip: 0,
-    discount: 0,
-    discountReason: '',
-    discountType: 'fixed',
-    ticketType: 'normal'
-  });
-
-  const dollarRate = getDollarRate();
-  const totals = calculateTotal(currentOrder.items);
-  const discountAmount = applyDiscount(totals.total, paymentData.discountType, paymentData.discount);
-  const finalTotal = totals.total - discountAmount + paymentData.tip;
-
-  const processPayment = () => {
-    if (paymentData.method === 'cash') {
-      const amountReceived = parseFloat(paymentData.amountReceived) || 0;
-      const totalInSelectedCurrency = paymentData.currency === 'USD' 
-        ? convertCurrency(finalTotal, 'MXN', 'USD', dollarRate)
-        : finalTotal;
-
-      if (amountReceived < totalInSelectedCurrency) {
-        alert('El monto recibido es insuficiente');
-        return;
-      }
-    }
-
-    const ticket = {
-      number: generateTicketNumber(),
-      date: formatTicketDate(new Date()),
-      type: paymentData.ticketType,
-      order: currentOrder,
-      payment: {
-        ...paymentData,
-        finalTotal,
-        discountAmount,
-        change: paymentData.method === 'cash' 
-          ? (parseFloat(paymentData.amountReceived) || 0) - finalTotal 
-          : 0,
-        dollarRate
-      },
-      totals: {
-        ...totals,
-        discountAmount,
-        finalTotal
-      }
-    };
-
-    onPaymentComplete(ticket);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-lg w-full max-h-screen overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Procesar Pago</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 mb-2">Resumen de la Orden</h3>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>{formatPrice(totals.subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>IVA:</span>
-                  <span>{formatPrice(totals.tax)}</span>
-                </div>
-                <div className="flex justify-between font-medium">
-                  <span>Total Original:</span>
-                  <span>{formatPrice(totals.total)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Comprobante
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setPaymentData({...paymentData, ticketType: 'normal'})}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
-                    paymentData.ticketType === 'normal'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Ticket Normal
-                </button>
-                <button
-                  onClick={() => setPaymentData({...paymentData, ticketType: 'electronic'})}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
-                    paymentData.ticketType === 'electronic'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Factura Electrónica
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Método de Pago
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => setPaymentData({...paymentData, method: 'cash'})}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
-                    paymentData.method === 'cash'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <span className="text-sm">Efectivo</span>
-                </button>
-                
-                <button
-                  onClick={() => setPaymentData({...paymentData, method: 'card'})}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
-                    paymentData.method === 'card'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  <span className="text-sm">Tarjeta</span>
-                </button>
-                
-                <button
-                  onClick={() => setPaymentData({...paymentData, method: 'transfer'})}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
-                    paymentData.method === 'transfer'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                  <span className="text-sm">Transferencia</span>
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Moneda
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setPaymentData({...paymentData, currency: 'MXN'})}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
-                    paymentData.currency === 'MXN'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Pesos MXN
-                </button>
-                <button
-                  onClick={() => setPaymentData({...paymentData, currency: 'USD'})}
-                  className={`p-3 rounded-lg border-2 text-center transition ${
-                    paymentData.currency === 'USD'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Dólares USD
-                </button>
-              </div>
-              {paymentData.currency === 'USD' && (
-                <p className="text-sm text-gray-600 mt-2">
-                  Tipo de cambio: ${dollarRate.toFixed(2)} MXN por USD
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descuento
-                </label>
-                <div className="flex space-x-2">
-                  <select
-                    value={paymentData.discountType}
-                    onChange={(e) => setPaymentData({...paymentData, discountType: e.target.value})}
-                    className="px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="fixed">$</option>
-                    <option value="percentage">%</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={paymentData.discount}
-                    onChange={(e) => setPaymentData({...paymentData, discount: parseFloat(e.target.value) || 0})}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Propina
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={paymentData.tip}
-                  onChange={(e) => setPaymentData({...paymentData, tip: parseFloat(e.target.value) || 0})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            {paymentData.discount > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Razón del Descuento
-                </label>
-                <input
-                  type="text"
-                  value={paymentData.discountReason}
-                  onChange={(e) => setPaymentData({...paymentData, discountReason: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Ej: Cliente frecuente, promoción..."
-                />
-              </div>
-            )}
-
-            {paymentData.method === 'cash' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Monto Recibido ({paymentData.currency})
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={paymentData.amountReceived}
-                  onChange={(e) => setPaymentData({...paymentData, amountReceived: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="0.00"
-                />
-              </div>
-            )}
-
-            <div className="bg-indigo-50 rounded-lg p-4">
-              <h3 className="font-medium text-indigo-900 mb-2">Total a Pagar</h3>
-              <div className="space-y-1 text-sm">
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-orange-600">
-                    <span>Descuento ({paymentData.discountType === 'percentage' ? `${paymentData.discount}%` : formatPrice(paymentData.discount)}):</span>
-                    <span>-{formatPrice(discountAmount)}</span>
-                  </div>
-                )}
-                {paymentData.tip > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Propina:</span>
-                    <span>+{formatPrice(paymentData.tip)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-lg font-bold text-indigo-900">
-                  <span>Total Final:</span>
-                  <span>{formatPrice(finalTotal)}</span>
-                </div>
-                {paymentData.currency === 'USD' && (
-                  <div className="flex justify-between text-sm text-indigo-700">
-                    <span>En USD:</span>
-                    <span>{formatPrice(convertCurrency(finalTotal, 'MXN', 'USD', dollarRate), 'USD')}</span>
-                  </div>
-                )}
-                {paymentData.method === 'cash' && paymentData.amountReceived && (
-                  <div className="flex justify-between text-green-600 font-medium">
-                    <span>Cambio:</span>
-                    <span>{formatPrice(Math.max(0, (parseFloat(paymentData.amountReceived) || 0) - finalTotal))}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={processPayment}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-              >
-                Procesar Pago
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const TicketModal = ({ ticket, onClose }) => {
-  const printTicket = () => {
-    window.print();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-md w-full max-h-screen overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">
-              {ticket.type === 'electronic' ? 'Factura Electrónica' : 'Ticket de Venta'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-4 mb-6 font-mono text-sm">
-            <div className="text-center mb-4">
-              <h3 className="font-bold">RESTAURANTE POS</h3>
-              <p>Calle Principal #123</p>
-              <p>Tel: (555) 123-4567</p>
-              <p>RFC: ABC123456789</p>
-            </div>
-
-            <div className="border-t border-gray-300 pt-2 mb-4">
-              <div className="flex justify-between">
-                <span>Ticket:</span>
-                <span>{ticket.number}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Fecha:</span>
-                <span>{ticket.date}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Mesero:</span>
-                <span>{ticket.order.waiter || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Cliente:</span>
-                <span>{ticket.order.customer || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Tipo:</span>
-                <span>{formatOrderType(ticket.order.type)}</span>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-300 pt-2 mb-4">
-              <div className="font-bold mb-2">PRODUCTOS:</div>
-              {ticket.order.items.map((item, index) => (
-                <div key={index} className="mb-2">
-                  <div className="flex justify-between">
-                    <span>{item.name}</span>
-                    <span>{formatPrice(item.price * item.quantity)}</span>
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    {item.quantity} x {formatPrice(item.price)}
-                    {item.variant && ` (${item.variant})`}
-                  </div>
-                  {item.modifiers.length > 0 && (
-                    <div className="text-xs text-gray-600">
-                      + {item.modifiers.join(', ')}
-                    </div>
-                  )}
-                  {item.specialInstructions && (
-                    <div className="text-xs text-orange-600">
-                      Nota: {item.specialInstructions}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-gray-300 pt-2">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span>{formatPrice(ticket.totals.subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>IVA (16%):</span>
-                <span>{formatPrice(ticket.totals.tax)}</span>
-              </div>
-              {ticket.totals.discountAmount > 0 && (
-                <div className="flex justify-between text-orange-600">
-                  <span>Descuento:</span>
-                  <span>-{formatPrice(ticket.totals.discountAmount)}</span>
-                </div>
-              )}
-              {ticket.payment.tip > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Propina:</span>
-                  <span>+{formatPrice(ticket.payment.tip)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold border-t border-gray-300 pt-1">
-                <span>TOTAL:</span>
-                <span>{formatPrice(ticket.totals.finalTotal)}</span>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-300 pt-2 mt-4">
-              <div className="flex justify-between">
-                <span>Método de Pago:</span>
-                <span className="capitalize">{ticket.payment.method}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Moneda:</span>
-                <span>{ticket.payment.currency}</span>
-              </div>
-              {ticket.payment.currency === 'USD' && (
-                <div className="flex justify-between text-xs">
-                  <span>Tipo de Cambio:</span>
-                  <span>${ticket.payment.dollarRate.toFixed(2)} MXN</span>
-                </div>
-              )}
-              {ticket.payment.method === 'cash' && (
-                <>
-                  <div className="flex justify-between">
-                    <span>Recibido:</span>
-                    <span>{formatPrice(ticket.payment.amountReceived)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Cambio:</span>
-                    <span>{formatPrice(ticket.payment.change)}</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="text-center mt-4 text-xs">
-              <p>¡Gracias por su preferencia!</p>
-              <p>Conserve su ticket</p>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={printTicket}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-            >
-              Imprimir
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+// Componente PaymentModal movido a su propio archivo PaymentManagement.js
+// Componente TicketModal movido a su propio archivo PaymentManagement.js
 
 export default OrderManagement;
-
-// DONE

@@ -10,6 +10,7 @@ import PaymentManagement from './components/PaymentManagement';
 import DeliveryManagement from './components/DeliveryManagement';
 import CashRegisterManagement from './components/CashRegisterManagement';
 import ConfigurationManagement from './components/ConfigurationManagement';
+import CustomerManagement from './components/CustomerManagement'; // Importar CustomerManagement
 import DollarRateModal from './components/DollarRateModal'; // Importar el nuevo modal
 import { userStorage } from './utils/storage';
 
@@ -59,6 +60,8 @@ const App = () => {
         return <OrderManagement />;
       case 'tables':
         return <TableManagement />;
+      case 'customers': // Nueva ruta para CustomerManagement
+        return <CustomerManagement />;
       case 'payments':
         return <PaymentManagement />;
       case 'delivery':
